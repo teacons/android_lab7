@@ -2,12 +2,19 @@ package ru.fbear.lab7
 
 import android.annotation.SuppressLint
 import android.app.Service
+import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Bitmap.CompressFormat
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.*
-import kotlinx.coroutines.*
-import java.io.FileOutputStream
+import android.provider.MediaStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.io.OutputStream
 import java.net.URL
 
 
@@ -39,19 +46,14 @@ class MyService : Service() {
     @Suppress("BlockingMethodInNonBlockingContext")
     private suspend fun downloadImage(urlString: String?, filename: String): String? {
         return withContext(Dispatchers.IO) {
-            var outputStream: FileOutputStream? = null
             try {
                 val url = URL(urlString)
                 val inputStream = url.openStream()
                 val img = BitmapFactory.decodeStream(inputStream)
-                outputStream = openFileOutput(filename, MODE_PRIVATE)
-                img.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-                "$filesDir/$filename"
+                saveBitmap(img, CompressFormat.PNG, filename)
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
-            } finally {
-                outputStream?.close()
             }
         }
     }
@@ -91,6 +93,42 @@ class MyService : Service() {
                 }
                 else -> super.handleMessage(msg)
             }
+        }
+    }
+
+    private fun saveBitmap(
+        bitmap: Bitmap,
+        format: CompressFormat,
+        displayName: String
+    ): String {
+        val relativeLocation = Environment.DIRECTORY_PICTURES
+        val contentValues = ContentValues()
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+        contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, relativeLocation)
+        val resolver = contentResolver
+        var stream: OutputStream? = null
+        var uri: Uri? = null
+        try {
+            val contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            uri = resolver.insert(contentUri, contentValues)
+            if (uri == null) {
+                throw IOException("Failed to create new MediaStore record.")
+            }
+            stream = resolver.openOutputStream(uri)
+            if (stream == null) {
+                throw IOException("Failed to get output stream.")
+            }
+            if (!bitmap.compress(format, 95, stream)) {
+                throw IOException("Failed to save bitmap.")
+            }
+            return uri.toString()
+        } catch (e: IOException) {
+            if (uri != null) {
+                resolver.delete(uri, null, null)
+            }
+            throw e
+        } finally {
+            stream?.close()
         }
     }
 }

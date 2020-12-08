@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId "ru.fbear.lab7"
-        minSdkVersion 24
+        minSdkVersion 30
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"

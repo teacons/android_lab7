@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.*
 import androidx.appcompat.app.AppCompatActivity
+import com.bumptech.glide.Glide
 import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : AppCompatActivity() {
@@ -15,12 +16,13 @@ class MainActivity : AppCompatActivity() {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
-                    result.text = msg.data.getString(URL)
+                    Glide.with(this@MainActivity).load(msg.data.getString(URL)).into(result)
                 }
                 else -> super.handleMessage(msg)
             }
         }
     }
+
     companion object {
         private const val DOWNLOAD_URL = 1
         private const val URL = "url"
@@ -63,22 +65,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         download_bounded.setOnClickListener {
-            val urlText =
-                if (url.text.isNotEmpty()) {
-                    url.text.toString()
-                } else {
-                    "https://old.fbear.ru/image/android_cat.webp"
-                }
-            sendBounded(urlText)
+            sendBounded(prepURL())
         }
         download_started.setOnClickListener {
-            val urlText =
-                if (url.text.isNotEmpty()) {
-                    url.text.toString()
-                } else {
-                    "https://old.fbear.ru/image/android_cat.webp"
-                }
-            sendStarted(urlText)
+            sendStarted(prepURL())
         }
     }
 
@@ -104,6 +94,14 @@ class MainActivity : AppCompatActivity() {
         startService(intent)
 
     }
+
+    private fun prepURL() =
+        if (url.text.isNotEmpty()) {
+            url.text.toString()
+        } else {
+            "https://old.fbear.ru/image/android_cat.webp"
+        }
+
 
 }
 
