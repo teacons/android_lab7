@@ -33,7 +33,7 @@
         android:hint="@string/enter_url"
 
         android:inputType="textUri"
-        app:layout_constraintBottom_toTopOf="@+id/download_btn"
+        app:layout_constraintBottom_toTopOf="@+id/download_started"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
@@ -41,12 +41,35 @@
         app:layout_constraintVertical_bias="0.0" />
 
     <Button
-        android:id="@+id/download_btn"
+        android:id="@+id/download_started"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/download"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"
+        android:text="@string/download_started"
+        app:layout_constraintEnd_toStartOf="@+id/download_bounded"
+        app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/url" />
+
+    <TextView
+        android:id="@+id/result"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/download_started" />
+
+    <Button
+        android:id="@+id/download_bounded"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/download_bounded"
+        app:layout_constraintBottom_toBottomOf="@+id/download_started"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/download_started"
+        app:layout_constraintTop_toTopOf="@+id/download_started" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
