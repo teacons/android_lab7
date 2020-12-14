@@ -11,15 +11,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Lab7"
         tools:ignore="AllowBackup">
-        <receiver
-            android:name=".MyReceiver"
-            android:enabled="true"
-            android:exported="false"
-            android:permission="TODO">
-            <intent-filter>
-                <action android:name="ru.fbear.lab7.DOWNLOAD_COMPLETE" />
-            </intent-filter>
-        </receiver>
+
 
         <activity android:name=".MainActivity">
             <intent-filter>
