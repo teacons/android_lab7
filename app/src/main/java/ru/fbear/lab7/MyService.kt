@@ -5,23 +5,26 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.webkit.URLUtil
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URL
+import java.util.concurrent.atomic.AtomicInteger
 
 
 class MyService : Service() {
+    private val coroutineJob = Job()
+    private val coroutineScope = CoroutineScope(Dispatchers.Default + coroutineJob)
+
+    private val count = AtomicInteger()
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        GlobalScope.launch {
+        count.incrementAndGet()
+        coroutineScope.launch {
             intent.getStringExtra("url")?.let { downloadImage(it) }
-        }
-        stopSelf(startId)
-        return START_NOT_STICKY
+        }.invokeOnCompletion { count.decrementAndGet() }
+        if (count.get() == 0) stopSelf(startId)
+        return START_REDELIVER_INTENT
     }
 
     @Suppress("BlockingMethodInNonBlockingContext")
