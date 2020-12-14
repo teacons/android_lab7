@@ -8,14 +8,17 @@ import android.content.ServiceConnection
 import android.os.*
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
+import java.lang.ref.WeakReference
 
 class MainActivity : AppCompatActivity() {
-    @SuppressLint("HandlerLeak")
-    inner class IncomingHandler : Handler(Looper.getMainLooper()) {
+    class IncomingHandler(linkToActivity: WeakReference<MainActivity>) : Handler(Looper.getMainLooper()) {
+        val activity = linkToActivity.get()
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
-                    result.text = msg.data.getString(URL)
+                    if (activity != null) {
+                        activity.result.text = msg.data.getString(URL)
+                    }
                 }
                 else -> super.handleMessage(msg)
             }
@@ -48,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         Intent(this, MyService::class.java).also { intent ->
             bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
         }
-        mMessenger = Messenger(IncomingHandler())
+        mMessenger = Messenger(IncomingHandler(WeakReference(this)))
     }
 
     override fun onStop() {
