@@ -17,7 +17,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         val filter = IntentFilter("ru.fbear.lab7.DOWNLOAD_COMPLETE")
         registerReceiver(broadcastReceiver, filter)
-        requestPermission()
+        broadcastReceiver.uri.observe(this) {
+            replaceImageView(it)
+        }
     }
 
     override fun onDestroy() {
@@ -25,10 +27,11 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(broadcastReceiver)
     }
 
-    fun replaceImageView(uri: String) {
+    private fun replaceImageView(uri: String?) {
         if (haveStoragePermission()) {
             Glide.with(this)
                 .load(uri)
+                .error(R.drawable.ic_broken_image)
                 .into(image)
         } else {
             requestPermission()
@@ -38,8 +41,7 @@ class MainActivity : AppCompatActivity() {
     private fun requestPermission() {
         if (!haveStoragePermission()) {
             val permissions = arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                Manifest.permission.READ_EXTERNAL_STORAGE
             )
             ActivityCompat.requestPermissions(this, permissions,
                 READ_EXTERNAL_STORAGE_REQUEST
@@ -54,6 +56,16 @@ class MainActivity : AppCompatActivity() {
         ) == PackageManager.PERMISSION_GRANTED
 
     companion object {
-        private const val READ_EXTERNAL_STORAGE_REQUEST = 0x1045
+        private const val READ_EXTERNAL_STORAGE_REQUEST = 1
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        when (requestCode) {
+            1 -> replaceImageView(broadcastReceiver.uri.value)
+        }
     }
 }

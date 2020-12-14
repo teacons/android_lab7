@@ -9,14 +9,16 @@ import android.os.*
 import androidx.appcompat.app.AppCompatActivity
 import com.bumptech.glide.Glide
 import kotlinx.android.synthetic.main.activity_main.*
+import java.lang.ref.WeakReference
 
 class MainActivity : AppCompatActivity() {
-    @SuppressLint("HandlerLeak")
-    inner class IncomingHandler : Handler(Looper.getMainLooper()) {
+
+    class IncomingHandler(linkToActivity: WeakReference<MainActivity>) : Handler(Looper.getMainLooper()) {
+        private val activity = linkToActivity.get()
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
-                    Glide.with(this@MainActivity).load(msg.data.getString(URL)).into(result)
+                    activity?.let { Glide.with(it).load(msg.data.getString(URL)).into(activity.result) }
                 }
                 else -> super.handleMessage(msg)
             }
@@ -50,7 +52,7 @@ class MainActivity : AppCompatActivity() {
         Intent(this, MyService::class.java).also { intent ->
             bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
         }
-        mMessenger = Messenger(IncomingHandler())
+        mMessenger = Messenger(IncomingHandler(WeakReference(this)))
     }
 
     override fun onStop() {

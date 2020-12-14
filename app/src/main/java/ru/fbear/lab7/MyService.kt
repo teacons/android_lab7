@@ -10,11 +10,14 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.*
 import android.provider.MediaStore
+import android.webkit.URLUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.io.InputStream
 import java.io.OutputStream
+import java.lang.ref.WeakReference
 import java.net.URL
 
 
@@ -22,19 +25,16 @@ class MyService : Service() {
 
     private lateinit var mMessenger: Messenger
 
-    private var count = 0
-
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         runBlocking {
-            val path = downloadImage(intent.getStringExtra(URL), "$count.png")
-            count++
+            val path = downloadImage(intent.getStringExtra(URL))
             path?.let { broadcast(it) }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        mMessenger = Messenger(IncomingHandler())
+        mMessenger = Messenger(IncomingHandler(WeakReference(this)))
         return mMessenger.binder
     }
 
@@ -42,15 +42,16 @@ class MyService : Service() {
         private const val DOWNLOAD_URL = 1
         private const val URL = "url"
     }
-
     @Suppress("BlockingMethodInNonBlockingContext")
-    private suspend fun downloadImage(urlString: String?, filename: String): String? {
+    private suspend fun downloadImage(urlString: String?): String? {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL(urlString)
-                val inputStream = url.openStream()
-                val img = BitmapFactory.decodeStream(inputStream)
-                saveBitmap(img, CompressFormat.PNG, filename)
+                val connect = url.openConnection()
+                val filename =
+                    URLUtil.guessFileName(connect.url.toString(), null, connect.contentType)
+                val inputStream = connect.getInputStream()
+                saveBitmap(inputStream, connect.contentType, filename)
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
@@ -67,14 +68,14 @@ class MyService : Service() {
         sendBroadcast(i)
     }
 
-    @SuppressLint("HandlerLeak")
-    inner class IncomingHandler : Handler(Looper.getMainLooper()) {
+    class IncomingHandler(linkToService: WeakReference<MyService>) :
+        Handler(Looper.getMainLooper()) {
+        private val service = linkToService.get()
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
                     runBlocking {
-                        val path = downloadImage(msg.data.getString(URL), "$count.png")
-                        count++
+                        val path = service?.downloadImage(msg.data.getString(URL))
                         path?.let {
                             val bundle = Bundle().apply {
                                 putString(URL, it)
@@ -97,34 +98,32 @@ class MyService : Service() {
     }
 
     private fun saveBitmap(
-        bitmap: Bitmap,
-        format: CompressFormat,
+        inputStream: InputStream,
+        mimeType: String?,
         displayName: String
     ): String {
         val relativeLocation = Environment.DIRECTORY_PICTURES
         val contentValues = ContentValues()
         contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
         contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, relativeLocation)
-        val resolver = contentResolver
         var stream: OutputStream? = null
         var uri: Uri? = null
         try {
             val contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            uri = resolver.insert(contentUri, contentValues)
+            uri = contentResolver.insert(contentUri, contentValues)
             if (uri == null) {
                 throw IOException("Failed to create new MediaStore record.")
             }
-            stream = resolver.openOutputStream(uri)
+            stream = contentResolver.openOutputStream(uri)
             if (stream == null) {
                 throw IOException("Failed to get output stream.")
             }
-            if (!bitmap.compress(format, 95, stream)) {
-                throw IOException("Failed to save bitmap.")
-            }
+            stream.write(inputStream.readBytes())
             return uri.toString()
         } catch (e: IOException) {
             if (uri != null) {
-                resolver.delete(uri, null, null)
+                contentResolver.delete(uri, null, null)
             }
             throw e
         } finally {
