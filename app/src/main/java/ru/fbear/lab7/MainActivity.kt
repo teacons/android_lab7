@@ -1,6 +1,5 @@
 package ru.fbear.lab7
 
-import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -13,12 +12,16 @@ import java.lang.ref.WeakReference
 
 class MainActivity : AppCompatActivity() {
 
-    class IncomingHandler(linkToActivity: WeakReference<MainActivity>) : Handler(Looper.getMainLooper()) {
-        private val activity = linkToActivity.get()
+    class IncomingHandler(private val linkToActivity: WeakReference<MainActivity>) :
+        Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
-                    activity?.let { Glide.with(it).load(msg.data.getString(URL)).into(activity.result) }
+                    val activity = linkToActivity.get()
+                    activity?.let {
+                        Glide.with(it).load(msg.data.getString(URL))
+                            .into(activity.result)
+                    }
                 }
                 else -> super.handleMessage(msg)
             }
@@ -50,7 +53,10 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         Intent(this, MyService::class.java).also { intent ->
-            bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+            if (!bindService(intent, mConnection, Context.BIND_AUTO_CREATE)) {
+                unbindService(mConnection)
+                bound = false
+            }
         }
         mMessenger = Messenger(IncomingHandler(WeakReference(this)))
     }

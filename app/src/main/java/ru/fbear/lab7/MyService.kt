@@ -1,36 +1,37 @@
 package ru.fbear.lab7
 
-import android.annotation.SuppressLint
 import android.app.Service
 import android.content.ContentValues
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Bitmap.CompressFormat
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.*
 import android.provider.MediaStore
 import android.webkit.URLUtil
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.lang.ref.WeakReference
 import java.net.URL
+import java.util.concurrent.atomic.AtomicInteger
 
 
 class MyService : Service() {
 
     private lateinit var mMessenger: Messenger
+    private val coroutineJob = Job()
+    private val coroutineScope = CoroutineScope(Dispatchers.Default + coroutineJob)
+
+    private val count = AtomicInteger()
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        runBlocking {
+        count.incrementAndGet()
+        coroutineScope.launch {
             val path = downloadImage(intent.getStringExtra(URL))
             path?.let { broadcast(it) }
-        }
-        return START_NOT_STICKY
+        }.invokeOnCompletion { count.decrementAndGet() }
+        if (count.get() == 0) stopSelf(startId)
+        return START_REDELIVER_INTENT
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -63,19 +64,19 @@ class MyService : Service() {
         val i = Intent().apply {
             action = "ru.fbear.lab7.DOWNLOAD_COMPLETE"
             putExtra("ru.fbear.lab7.broadcast.Message", path)
-            addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
         }
         sendBroadcast(i)
     }
 
-    class IncomingHandler(linkToService: WeakReference<MyService>) :
+    class IncomingHandler(private val linkToService: WeakReference<MyService>) :
         Handler(Looper.getMainLooper()) {
-        private val service = linkToService.get()
+        private val coroutineJob = Job()
+        private val coroutineScope = CoroutineScope(Dispatchers.Default + coroutineJob)
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
-                    runBlocking {
-                        val path = service?.downloadImage(msg.data.getString(URL))
+                    coroutineScope.launch {
+                        val path = linkToService.get()?.downloadImage(msg.data.getString(URL))
                         path?.let {
                             val bundle = Bundle().apply {
                                 putString(URL, it)
