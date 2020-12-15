@@ -2,7 +2,6 @@
     <string name="app_name">lab7</string>
     <string name="image_url">Image URL:</string>
     <string name="enter_url">Enter URL</string>
-    <string name="download">Download</string>
     <string name="download_started">Download (Started)</string>
     <string name="download_bounded">Download (Bounded)</string>
 </resources>

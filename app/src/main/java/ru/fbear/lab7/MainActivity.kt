@@ -1,6 +1,5 @@
 package ru.fbear.lab7
 
-import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -11,19 +10,18 @@ import kotlinx.android.synthetic.main.activity_main.*
 import java.lang.ref.WeakReference
 
 class MainActivity : AppCompatActivity() {
-    class IncomingHandler(linkToActivity: WeakReference<MainActivity>) : Handler(Looper.getMainLooper()) {
-        val activity = linkToActivity.get()
+    class IncomingHandler(private val linkToActivity: WeakReference<MainActivity>) :
+        Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
-                    if (activity != null) {
-                        activity.result.text = msg.data.getString(URL)
-                    }
+                    linkToActivity.get()?.result?.text = msg.data.getString(URL)
                 }
                 else -> super.handleMessage(msg)
             }
         }
     }
+
     companion object {
         private const val DOWNLOAD_URL = 1
         private const val URL = "url"
@@ -49,7 +47,8 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         Intent(this, MyService::class.java).also { intent ->
-            bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+            if (!bindService(intent, mConnection, Context.BIND_AUTO_CREATE))
+                unbindService(mConnection)
         }
         mMessenger = Messenger(IncomingHandler(WeakReference(this)))
     }
@@ -66,24 +65,20 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         download_bounded.setOnClickListener {
-            val urlText =
-                if (url.text.isNotEmpty()) {
-                    url.text.toString()
-                } else {
-                    "https://old.fbear.ru/image/android_cat.webp"
-                }
-            sendBounded(urlText)
+            sendBounded(getText())
         }
         download_started.setOnClickListener {
-            val urlText =
-                if (url.text.isNotEmpty()) {
-                    url.text.toString()
-                } else {
-                    "https://old.fbear.ru/image/android_cat.webp"
-                }
-            sendStarted(urlText)
+            sendStarted(getText())
         }
     }
+
+    private fun getText(): String =
+        if (url.text.isNotEmpty()) {
+            url.text.toString()
+        } else {
+            "https://old.fbear.ru/image/android_cat.webp"
+        }
+
 
     private fun sendBounded(url: String) {
         if (!bound) return

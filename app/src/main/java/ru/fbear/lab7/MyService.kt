@@ -8,18 +8,26 @@ import kotlinx.coroutines.*
 import java.io.FileOutputStream
 import java.lang.ref.WeakReference
 import java.net.URL
+import java.util.concurrent.atomic.AtomicInteger
 
 
 class MyService : Service() {
 
     private lateinit var mMessenger: Messenger
 
+    private val coroutineJob = Job()
+    private val coroutineScope = CoroutineScope(Dispatchers.Default + coroutineJob)
+
+    private val count = AtomicInteger()
+
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        runBlocking {
+        count.incrementAndGet()
+        coroutineScope.launch {
             val path = downloadImage(intent.getStringExtra(URL))
             path?.let { broadcast(it) }
-        }
-        return START_NOT_STICKY
+        }.invokeOnCompletion { count.decrementAndGet() }
+        if (count.get() == 0) stopSelf(startId)
+        return START_REDELIVER_INTENT
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -62,13 +70,12 @@ class MyService : Service() {
         sendBroadcast(i)
     }
 
-    class IncomingHandler(linkToActivity: WeakReference<MyService>) : Handler(Looper.getMainLooper()) {
-        private val service = linkToActivity.get()
+    class IncomingHandler(private val linkToActivity: WeakReference<MyService>) : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
                     runBlocking {
-                        val path = service?.downloadImage(msg.data.getString(URL))
+                        val path = linkToActivity.get()?.downloadImage(msg.data.getString(URL))
                         path.let {
                             val bundle = Bundle().apply {
                                 putString(URL, it)
@@ -88,5 +95,10 @@ class MyService : Service() {
                 else -> super.handleMessage(msg)
             }
         }
+    }
+
+    override fun onDestroy() {
+        coroutineJob.cancel()
+        super.onDestroy()
     }
 }
