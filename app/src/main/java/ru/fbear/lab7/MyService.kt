@@ -71,10 +71,12 @@ class MyService : Service() {
     }
 
     class IncomingHandler(private val linkToActivity: WeakReference<MyService>) : Handler(Looper.getMainLooper()) {
+        private val coroutineJob = Job()
+        private val coroutineScope = CoroutineScope(Dispatchers.Default + coroutineJob)
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 DOWNLOAD_URL -> {
-                    runBlocking {
+                    coroutineScope.launch {
                         val path = linkToActivity.get()?.downloadImage(msg.data.getString(URL))
                         path.let {
                             val bundle = Bundle().apply {
